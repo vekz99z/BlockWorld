@@ -1,0 +1,66 @@
+name: Build Windows Game
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Godot
+        shell: pwsh
+        run: |
+          Invoke-WebRequest `
+            -Uri "https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_win64.exe.zip" `
+            -OutFile "godot.zip"
+
+          Expand-Archive "godot.zip" -DestinationPath "godot"
+
+      - name: Create export preset
+        shell: pwsh
+        run: |
+          @'
+          [gd_resource type="EditorExportPreset" format=3]
+
+          [resource]
+          name="Windows Desktop"
+          platform="Windows Desktop"
+          runnable=true
+          custom_features=""
+          export_filter="all_resources"
+          include_filter=""
+          exclude_filter=""
+          export_path="build/BlockWorld.exe"
+
+          [preset.0.options]
+          binary_format/embed_pck=true
+          binary_format/architecture="x86_64"
+          application/config/name="BlockWorld"
+          application/config/description="BlockWorld"
+          application/run/main_scene="res://scenes/main.tscn"
+          boot_splash/bg_color=Color(0.14, 0.14, 0.14, 1)
+          display/window/size/viewport_width=1280
+          display/window/size/viewport_height=720
+          '@ | Out-File -Encoding utf8 "export_presets.cfg"
+
+      - name: Build game
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path "build"
+          .\godot\Godot_v4.5.1-stable_win64.exe `
+            --headless `
+            --path "." `
+            --export-release "Windows Desktop" "build/BlockWorld.exe"
+
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: BlockWorld-Windows
+          path: build/

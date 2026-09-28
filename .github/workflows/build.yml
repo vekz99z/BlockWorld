@@ -11,7 +11,7 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout project
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Download Godot
@@ -19,28 +19,32 @@ jobs:
         run: |
           Invoke-WebRequest `
             -Uri "https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_win64.exe.zip" `
-            -OutFile "godot.zip"
+            -OutFile godot.zip
 
-          Expand-Archive "godot.zip" -DestinationPath "godot"
+          Expand-Archive godot.zip -DestinationPath godot
 
-      - name: Download export templates
+      - name: Download Windows export template
         shell: pwsh
         run: |
           Invoke-WebRequest `
             -Uri "https://github.com/godotengine/godot/releases/download/4.5.1-stable/Godot_v4.5.1-stable_export_templates.tpz" `
-            -OutFile "templates.tpz"
+            -OutFile templates.tpz
 
           New-Item -ItemType Directory -Force `
             -Path "$env:APPDATA\Godot\export_templates\4.5.1.stable"
 
-          tar -xf "templates.tpz" `
-            -C "$env:APPDATA\Godot\export_templates\4.5.1.stable"
+          Expand-Archive templates.tpz -DestinationPath template_temp
+
+          Copy-Item `
+            "template_temp\templates\windows_release_x86_64.exe" `
+            "$env:APPDATA\Godot\export_templates\4.5.1.stable\windows_release_x86_64.exe"
 
       - name: Create export preset
         shell: pwsh
         run: |
           @'
           [preset.0]
+
           name="Windows Desktop"
           platform="Windows Desktop"
           runnable=true
@@ -52,38 +56,35 @@ jobs:
           export_path="build/BlockWorld.exe"
 
           [preset.0.options]
+
           binary_format/architecture="x86_64"
           binary_format/embed_pck=true
           application/config/name="BlockWorld"
           application/run/main_scene="res://scenes/main.tscn"
           display/window/size/viewport_width=1280
           display/window/size/viewport_height=720
-          '@ | Out-File -Encoding utf8 "export_presets.cfg"
+          '@ | Set-Content export_presets.cfg -Encoding UTF8
 
       - name: Create build folder
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path "build"
+          New-Item -ItemType Directory -Force build
 
-      - name: Export Windows game
+      - name: Export game
         shell: pwsh
         run: |
           .\godot\Godot_v4.5.1-stable_win64.exe `
             --headless `
-            --path "." `
-            --export-release "Windows Desktop" "build/BlockWorld.exe"
+            --path . `
+            --export-release "Windows Desktop" `
+            "build/BlockWorld.exe"
 
-      - name: Check build
+      - name: Show build
         shell: pwsh
         run: |
-          if (!(Test-Path "build/BlockWorld.exe")) {
-            Write-Error "BlockWorld.exe was not created."
-            exit 1
-          }
+          Get-ChildItem build
 
-          Get-ChildItem "build"
-
-      - name: Upload Windows build
+      - name: Upload game
         uses: actions/upload-artifact@v4
         with:
           name: BlockWorld-Windows
